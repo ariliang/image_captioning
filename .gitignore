@@ -4,5 +4,6 @@ __pycache__
 .idea/
 
 src/
+output/
 decoder.ckpt
 features.pt

@@ -50,7 +50,7 @@ def parse_lines(lines):
         image_ids.append(idx.split('.')[0])
 
         # append caption
-        # the raw caption first split by ' ', then keep and lower the word
+        # the raw caption first splited by ' ', then keep and lower the word
         caption = ' '.join([ word for word in caption.split() if word.isalpha() ]).lower()
         cleaned_captions.append(caption)
 
@@ -112,6 +112,10 @@ def decode_caption(sampled_ids, vocab):
 
 
     # QUESTION 2.1
+
+    # remove special token
+    cleaned_ids = [ idx for idx in sampled_ids if idx > vocab.word2idx['<unk>'] ]
+    predicted_caption = ' '.join(list(map(lambda x: vocab.idx2word[x], cleaned_ids)))
 
 
     return predicted_caption

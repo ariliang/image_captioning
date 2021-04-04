@@ -22,7 +22,7 @@ from utils import *
 from config import *
 
 # if false, train model; otherwise try loading model from checkpoint and evaluate
-EVAL = False
+EVAL = True
 
 
 # reconstruct the captions and vocab, just as in extract_features.py
@@ -149,6 +149,48 @@ else:
 
     # TODO define decode_caption() function in utils.py
     # predicted_caption = decode_caption(word_ids, vocab)
+
+    ################ prepare features
+    #################################
+
+    # remove duplicates, make sure image_ids are ordered
+    test_image_ids = [ image_id for i, image_id in enumerate(test_image_ids) if i%5 == 0]
+
+    # num of samples
+    num = 3
+    # randomly choose consistent samples, start from index
+    index = np.random.randint(0, len(test_image_ids) - num)
+
+    # prepare test images dataset
+    test_image_dataset = Flickr8k_Images(
+        image_ids=test_image_ids[index:index+num], 
+        transform=data_transform
+    )
+
+    # clear output dir
+    import os
+    os.system('rm -f output/*')
+
+    # i is the index of image_id
+    for i, test_image in enumerate(list(test_image_dataset), index):
+
+        # no gradient to be updated
+        with torch.no_grad():
+            test_image = test_image.to(device).unsqueeze(0)
+            feature = encoder(test_image)
+
+            word_ids = decoder.sample(feature).clone().cpu().flatten().tolist()
+            predicted_caption = decode_caption(word_ids, vocab)
+
+            # cp image to output dir
+            os.system(f'cp /data/ariliang/Local-Data/models_datasets/Flicker8k_Dataset/{test_image_ids[i]}.jpg output/{i-index}.jpg')
+
+            print(f'image_id: {test_image_ids[i]} predicted: {predicted_caption}')
+            print(f'reference:')
+            for ref in test_cleaned_captions[i*5: (i+1)*5]:
+                print(ref)
+            print()
+
 
 
 
