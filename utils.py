@@ -157,3 +157,56 @@ def caption_collate_fn(data):
     return images, targets, lengths
 
 
+
+
+
+############# defined helper functions
+######################################
+
+def tokenize(cleaned_sents):
+
+    '''
+        args:
+            cleaned_sents(list): e.g. ['this is a sent', 'this is another sent']
+        returns:
+            tokenized(list): e.g. [['this', 'is', 'a', 'sent'], ['this', ...]]
+    '''
+
+    tokenized = [ sent.split() for sent in cleaned_sents ]
+
+    return tokenized
+
+
+def texts_to_vecs(refs, gen, vocab):
+
+    '''
+        args:
+            refs(list): reference sentences. e.g. ['sent one', 'sent two']
+            gen(str): generated sentence. e.g. 'generated sent'
+            vocab(Vocabulary): vocabulary object.
+        returns:
+            vec_refs(list): list of lists of token ids. e.g. [[343, 545], [343, 246]]
+            vec_gen(list): list of ids. e.g. [656, 343]
+    '''
+
+    if type(refs) is not list:
+        raise 'refs must be a list'
+
+    # tokenize
+    vec_refs = tokenize(refs)
+    vec_gen = gen.split()
+
+    # get max seq len
+    vec_ref_len = [ len(vec_ref) for vec_ref in vec_refs ]
+    max_seq_len = max(vec_ref_len) if max(vec_ref_len) > len(vec_gen) else len(vec_gen)
+
+    # tokens to ids
+    vec_refs = [ [ vocab(token) for token in vec_ref ] for vec_ref in vec_refs ]
+    vec_gen = [ vocab(token) for token in vec_gen ]
+
+    # padding to max_seq_len
+    for vec_ref in vec_refs:
+        vec_ref.extend([vocab('<pad>')] * (max_seq_len - len(vec_ref)))
+    vec_gen.extend([vocab('<pad>')] * (max_seq_len - len(vec_gen)))
+
+    return vec_refs, vec_gen

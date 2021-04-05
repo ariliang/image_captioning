@@ -184,11 +184,12 @@ else:
             test_image = test_image.to(device)
             features = encoder(test_image)   # (batch_size, 2048)
 
-            batch_word_ids = decoder.sample(features).clone().cpu()
+            # there is a bug if computeing all features, so feed just one image feature
+            for feature in features:
+                feature = feature.unsqueeze(0)
+                word_ids = decoder.sample(feature).clone().cpu().flatten().tolist()
 
-            for word_ids in batch_word_ids:
-
-                predicted_caption = decode_caption(word_ids.tolist(), vocab)
+                predicted_caption = decode_caption(word_ids, vocab)
                 generated_captions.append(predicted_caption)
 
     import random
@@ -224,5 +225,34 @@ else:
     # Feel free to add helper functions to utils.py as needed,
     # documenting what they do in the code and in your report
 
+    ############## BLEU scores
+    from nltk.translate.bleu_score import sentence_bleu
+    from sklearn.metrics.pairwise import cosine_similarity
 
+    # store bleu score of every image's generated caption and its references
+    bleu_scores = []
+    cosine_scores = []
+    for i, (refs, gen) in enumerate(zip(test_cleaned_captions, generated_captions)):
+        bleu_score = sentence_bleu(refs, gen, weights=(0.25, 0.25, 0.25, 0.25))
+        bleu_scores.append(bleu_score)
 
+        # convert references and generated caption to vector, where vec_refs is a list of vectors
+        vec_refs, vec_gen = texts_to_vecs(refs, gen, vocab)
+
+        cosine_score = []
+        for vec_ref in vec_refs:
+            cosine_score.append(cosine_similarity([vec_ref], [vec_gen]))
+
+        cosine_scores.append(np.sum(cosine_score) / len(cosine_score))
+    
+    # print bleu scores details
+    print(f'overall average bleu: {np.sum(bleu_scores)/len(bleu_scores)}')
+    print(f'highest bleu index: {np.argmax(bleu_scores)}')
+    print(f'lowest bleu index: {np.argmin(bleu_scores)}')
+
+    print()
+
+    # print cosine similarity scores details
+    print(f'overall average cosine similarity: {np.sum(cosine_scores)/len(cosine_scores)}')
+    print(f'highest cosine similarity index: {np.argmax(cosine_scores)}')
+    print(f'lowest cosine similarity index: {np.argmin(cosine_scores)}')
