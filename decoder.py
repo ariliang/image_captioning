@@ -153,43 +153,63 @@ else:
     ################ prepare features
     #################################
 
-    # remove duplicates, make sure image_ids are ordered
+    # remove duplicates, make sure image_ids are identical to the order of reference captions
     test_image_ids = [ image_id for i, image_id in enumerate(test_image_ids) if i%5 == 0]
-
-    # num of samples
-    num = 3
-    # randomly choose consistent samples, start from index
-    index = np.random.randint(0, len(test_image_ids) - num)
+    # merge references of a image. [['ref1', ..., 'ref5'], ['ref1', ..., 'ref5'], ...] 
+    test_cleaned_captions = [ test_cleaned_captions[i: i+5] for i in range(len(test_cleaned_captions)) if i%5 == 0]
 
     # prepare test images dataset
     test_image_dataset = Flickr8k_Images(
-        image_ids=test_image_ids[index:index+num], 
+        image_ids=test_image_ids,
         transform=data_transform
     )
 
-    # clear output dir
-    import os
-    os.system('rm -f output/*')
+    # image and reference dataset to dataloader
+    test_loader = torch.utils.data.DataLoader(
+        test_image_dataset,
+        batch_size=64,
+        shuffle=False,
+        num_workers=2
+    )
 
-    # i is the index of image_id
-    for i, test_image in enumerate(list(test_image_dataset), index):
+    generated_captions = []
+
+    # display progress
+    from tqdm import tqdm
+
+    for test_image in tqdm(test_loader, 'captions generating'):
 
         # no gradient to be updated
         with torch.no_grad():
-            test_image = test_image.to(device).unsqueeze(0)
-            feature = encoder(test_image)
+            test_image = test_image.to(device)
+            features = encoder(test_image)   # (batch_size, 2048)
 
-            word_ids = decoder.sample(feature).clone().cpu().flatten().tolist()
-            predicted_caption = decode_caption(word_ids, vocab)
+            batch_word_ids = decoder.sample(features).clone().cpu()
 
-            # cp image to output dir
-            os.system(f'cp /data/ariliang/Local-Data/models_datasets/Flicker8k_Dataset/{test_image_ids[i]}.jpg output/{i-index}.jpg')
+            for word_ids in batch_word_ids:
 
-            print(f'image_id: {test_image_ids[i]} predicted: {predicted_caption}')
-            print(f'reference:')
-            for ref in test_cleaned_captions[i*5: (i+1)*5]:
-                print(ref)
-            print()
+                predicted_caption = decode_caption(word_ids.tolist(), vocab)
+                generated_captions.append(predicted_caption)
+
+    import random
+    import os
+
+    # randomly choose the index of samples to be shown
+    idxes = random.choices(range(len(test_image_ids)), k=3)
+
+    # clear output dir, then copy the images to this dir
+    os.system('rm -f output/*')
+    for i, idx in enumerate(idxes, 1):
+
+        os.system(f'cp {IMAGE_DIR}/{test_image_ids[idx]}.jpg output/{i}.jpg')
+
+        print(f'predicted: {generated_captions[idx]}')
+        print('references:')
+        for ref in test_cleaned_captions[idx]:
+            print(ref)
+
+        print()
+
 
 
 
