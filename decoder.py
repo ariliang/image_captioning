@@ -154,9 +154,9 @@ else:
     #################################
 
     # remove duplicates, make sure image_ids are identical to the order of reference captions
-    test_image_ids = [ image_id for i, image_id in enumerate(test_image_ids) if i%5 == 0]
+    test_image_ids = test_image_ids[::5]
     # merge references of a image. [['ref1', ..., 'ref5'], ['ref1', ..., 'ref5'], ...] 
-    test_cleaned_captions = [ test_cleaned_captions[i: i+5] for i in range(len(test_cleaned_captions)) if i%5 == 0]
+    test_cleaned_captions = [ test_cleaned_captions[i: i+5] for i in range(0, len(test_cleaned_captions), 5)]
 
     # prepare test images dataset
     test_image_dataset = Flickr8k_Images(
