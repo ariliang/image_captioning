@@ -226,6 +226,10 @@ else:
     # randomly choose the index of samples to be shown
     idxes = random.choices(range(len(test_image_ids)), k=3)
 
+
+    print('three samples')
+    print('==============================')
+
     # clear output dir, then copy the images to this dir
     os.system('rm -f output/*')
 
@@ -344,5 +348,30 @@ else:
     print(f'predicted: {generated_captions[idx]}')
     print('references:')
     for ref in test_cleaned_captions[idx]:
+        print(ref)
+    print()
+
+
+    print('one similar and one dissimilar')
+    print('==============================')
+
+    differ_abs = np.abs(np.array(bleu_scores) - np.array(cosine_scores))
+
+    sim, sim_idx = np.min(differ_abs), np.argmin(differ_abs)
+    dis, dis_idx = np.max(differ_abs), np.argmax(differ_abs)
+
+    os.system(f'cp {IMAGE_DIR}/{test_image_ids[sim_idx]}.jpg output/similar.jpg')
+    print(f'similar index: {sim_idx}, bleu: {bleu_scores[sim_idx]:.3f}, cosine: {cosine_scores[sim_idx]:.3f}, differ: {sim:.3f}')
+    print(f'predicted: {generated_captions[sim_idx]}')
+    print('references:')
+    for ref in test_cleaned_captions[sim_idx]:
+        print(ref)
+    print()
+
+    os.system(f'cp {IMAGE_DIR}/{test_image_ids[dis_idx]}.jpg output/dissimilar.jpg')
+    print(f'dissimilar index: {dis_idx}, bleu: {bleu_scores[dis_idx]:.3f}, cosine: {cosine_scores[dis_idx]:.3f}, differ: {dis:.3f}')
+    print(f'predicted: {generated_captions[dis_idx]}')
+    print('references:')
+    for ref in test_cleaned_captions[dis_idx]:
         print(ref)
     print()
