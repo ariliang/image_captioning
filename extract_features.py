@@ -92,8 +92,10 @@ from tqdm import tqdm
 for data in tqdm(train_loader, 'batch in train_loader'):
     # no gradient to be updated
     with torch.no_grad():
+        # data: image. size(batch_size, 3, 224, 224)
         data = data.to(device)
 
+        # output: image feature. size(batch_size, 2048)
         output = model(data).cpu()
         features.append(output)
 

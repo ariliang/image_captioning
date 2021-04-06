@@ -86,12 +86,22 @@ if not EVAL:
     # for each batch, prepare the targets using this torch.nn.utils.rnn function
     # targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
 
+
+
+    #################### to train
+    #############################
+
+
+    # train mode
     decoder.train()
 
     for epoch in range(NUM_EPOCHS):
 
         for batch, (image_features, targets, lenghts) in enumerate(train_loader, 1):
 
+            # image_features: size(batch_size, 2048)
+            # targets: ['vocab(<start>)', ..., vocab('<end>')]. size(batch_size, seq_len)
+            # lengths: len of targets. size(batch_size, 1)
             image_features, targets = image_features.to(device), targets.to(device)
 
             # forward
@@ -150,6 +160,9 @@ else:
     # TODO define decode_caption() function in utils.py
     # predicted_caption = decode_caption(word_ids, vocab)
 
+
+
+
     ################ prepare features
     #################################
 
@@ -172,13 +185,19 @@ else:
         num_workers=2
     )
 
+
+
+
+    ############### to evaluate
+    ###########################
+
+    # store generated captions
     generated_captions = []
 
     # display progress
     from tqdm import tqdm
 
     for test_image in tqdm(test_loader, 'captions generating'):
-
         # no gradient to be updated
         with torch.no_grad():
             test_image = test_image.to(device)
@@ -186,11 +205,20 @@ else:
 
             # there is a bug if computeing all features, so feed just one image feature
             for feature in features:
-                feature = feature.unsqueeze(0)
-                word_ids = decoder.sample(feature).clone().cpu().flatten().tolist()
+                feature = feature.unsqueeze(0)  # (1, 2048)
 
+                # conver result tensor to list. (1, max_seq_len)
+                word_ids = decoder.sample(feature).clone().cpu().flatten().tolist()
+                
+                # decode word_ids to caption, and append to generated_captions
                 predicted_caption = decode_caption(word_ids, vocab)
                 generated_captions.append(predicted_caption)
+
+
+
+
+    ############## print result
+    ###########################
 
     import random
     import os
@@ -200,8 +228,11 @@ else:
 
     # clear output dir, then copy the images to this dir
     os.system('rm -f output/*')
+
+    # print three samples
     for i, idx in enumerate(idxes, 1):
 
+        # copy image to output dir to validate
         os.system(f'cp {IMAGE_DIR}/{test_image_ids[idx]}.jpg output/{i}.jpg')
 
         print(f'predicted: {generated_captions[idx]}')
@@ -225,34 +256,93 @@ else:
     # Feel free to add helper functions to utils.py as needed,
     # documenting what they do in the code and in your report
 
-    ############## BLEU scores
+
+
+
+    ############## BLEU scores and cosine similarity
+    ################################################
+
     from nltk.translate.bleu_score import sentence_bleu
+    from nltk.translate.bleu_score import SmoothingFunction
     from sklearn.metrics.pairwise import cosine_similarity
+
+    # smooth function in calculating bleu in dealing with warning
+    smoothie = SmoothingFunction().method4
 
     # store bleu score of every image's generated caption and its references
     bleu_scores = []
     cosine_scores = []
+
     for i, (refs, gen) in enumerate(zip(test_cleaned_captions, generated_captions)):
-        bleu_score = sentence_bleu(refs, gen, weights=(0.25, 0.25, 0.25, 0.25))
+        # bleu4
+        bleu_score = sentence_bleu(refs, gen, weights=(0.25, 0.25, 0.25, 0.25), smoothing_function=smoothie)
         bleu_scores.append(bleu_score)
 
         # convert references and generated caption to vector, where vec_refs is a list of vectors
         vec_refs, vec_gen = texts_to_vecs(refs, gen, vocab)
 
+        # compare generated with each reference
         cosine_score = []
         for vec_ref in vec_refs:
             cosine_score.append(cosine_similarity([vec_ref], [vec_gen]))
 
+        # add them up and calculate average
         cosine_scores.append(np.sum(cosine_score) / len(cosine_score))
     
-    # print bleu scores details
-    print(f'overall average bleu: {np.sum(bleu_scores)/len(bleu_scores)}')
-    print(f'highest bleu index: {np.argmax(bleu_scores)}')
-    print(f'lowest bleu index: {np.argmin(bleu_scores)}')
 
+
+
+    ############### print result
+    ############################
+
+
+    # print bleu scores details
+    print(f'overall average bleu: {np.sum(bleu_scores)/len(bleu_scores):.3f}')
+    print('==============================')
+
+    # index of image_id with highest bleu
+    idx = np.argmax(bleu_scores)
+
+    # copy image to output dir
+    os.system(f'cp {IMAGE_DIR}/{test_image_ids[idx]}.jpg output/bleu_high.jpg')
+
+    print(f'highest bleu index: {idx}, score: {np.max(bleu_scores):.3f}')
+    print(f'predicted: {generated_captions[idx]}')
+    print('references:')
+    for ref in test_cleaned_captions[idx]:
+        print(ref)
     print()
 
+
+    idx = np.argmin(bleu_scores)
+    os.system(f'cp {IMAGE_DIR}/{test_image_ids[idx]}.jpg output/bleu_low.jpg')
+    print(f'lowest bleu index: {idx}, socre:{np.min(bleu_scores):.3f}')
+    print(f'predicted: {generated_captions[idx]}')
+    print('references:')
+    for ref in test_cleaned_captions[idx]:
+        print(ref)
+    print()
+
+
+
     # print cosine similarity scores details
-    print(f'overall average cosine similarity: {np.sum(cosine_scores)/len(cosine_scores)}')
-    print(f'highest cosine similarity index: {np.argmax(cosine_scores)}')
-    print(f'lowest cosine similarity index: {np.argmin(cosine_scores)}')
+    print(f'overall average cosine similarity: {np.sum(cosine_scores)/len(cosine_scores):.3f}')
+    print('==============================')
+
+    idx = np.argmax(cosine_scores)
+    os.system(f'cp {IMAGE_DIR}/{test_image_ids[idx]}.jpg output/cosine_high.jpg')
+    print(f'highest cosine similarity index: {idx}, score: {np.max(cosine_scores):.3f}')
+    print(f'predicted: {generated_captions[idx]}')
+    print('references:')
+    for ref in test_cleaned_captions[idx]:
+        print(ref)
+    print()
+
+    idx = np.argmin(cosine_scores)
+    os.system(f'cp {IMAGE_DIR}/{test_image_ids[idx]}.jpg output/cosine_low.jpg')
+    print(f'lowest cosine similarity index: {idx}, score: {np.min(cosine_scores):.3f}')
+    print(f'predicted: {generated_captions[idx]}')
+    print('references:')
+    for ref in test_cleaned_captions[idx]:
+        print(ref)
+    print()
