@@ -282,12 +282,11 @@ else:
         bleu_score = sentence_bleu(refs, gen, weights=(0.25, 0.25, 0.25, 0.25), smoothing_function=smoothie)
         bleu_scores.append(bleu_score)
 
-        # convert references and generated caption to vector, where vec_refs is a list of vectors
-        vec_refs, vec_gen = texts_to_vecs(refs, gen, vocab)
-
         # compare generated with each reference
         cosine_score = []
-        for vec_ref in vec_refs:
+        for ref in refs:
+            # convert reference and generated caption to vector
+            vec_ref, vec_gen = texts_to_freq_vecs(ref, gen)
             cosine_score.append(cosine_similarity([vec_ref], [vec_gen]))
 
         # add them up and calculate average

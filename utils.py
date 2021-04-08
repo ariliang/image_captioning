@@ -177,36 +177,40 @@ def tokenize(cleaned_sents):
     return tokenized
 
 
-def texts_to_vecs(refs, gen, vocab):
+def texts_to_freq_vecs(ref, gen):
 
     '''
+        count word frequency, returns vectors
         args:
-            refs(list): reference sentences. e.g. ['sent one', 'sent two']
+            ref(str): reference sentences. e.g. 'reference sent'
             gen(str): generated sentence. e.g. 'generated sent'
-            vocab(Vocabulary): vocabulary object.
+            # vocab(Vocabulary): vocabulary object.
         returns:
-            vec_refs(list): list of lists of token ids. e.g. [[343, 545], [343, 246]]
-            vec_gen(list): list of ids. e.g. [656, 343]
+            vec_refs(list): list of ref's words frequency. e.g. [1, 1, 0]
+            vec_gen(list): list of gen's words frequency. e.g. [0, 1, 1]
     '''
 
-    if type(refs) is not list:
-        raise 'refs must be a list'
+    # {'reference', 'sent', 'generated'}
+    voca = set(ref.split() + gen.split())
 
-    # tokenize
-    vec_refs = tokenize(refs)
-    vec_gen = gen.split()
+    # {0: 'reference', 1: 'sent', 2: 'generated'}
+    idx2voca = { i:token for i, token in enumerate(voca) }
+    # {'reference': 0, 'sent': 1, 'generated': 2}
+    voca2idx = { token:i for i, token in idx2voca.items() }
 
-    # get max seq len
-    vec_ref_len = [ len(vec_ref) for vec_ref in vec_refs ]
-    max_seq_len = max(vec_ref_len) if max(vec_ref_len) > len(vec_gen) else len(vec_gen)
+    # [0, 1]
+    ref_idx = [ voca2idx[token] for token in ref.split() ]
+    # [2, 1]
+    gen_idx = [ voca2idx[token] for token in gen.split() ]
 
-    # tokens to ids
-    vec_refs = [ [ vocab(token) for token in vec_ref ] for vec_ref in vec_refs ]
-    vec_gen = [ vocab(token) for token in vec_gen ]
+    vec_ref = [0]*len(voca)
+    vec_gen = [0]*len(voca)
+    # [1, 1, 0]
+    for idx in ref_idx:
+        vec_ref[idx] += 1
 
-    # padding to max_seq_len
-    for vec_ref in vec_refs:
-        vec_ref.extend([vocab('<pad>')] * (max_seq_len - len(vec_ref)))
-    vec_gen.extend([vocab('<pad>')] * (max_seq_len - len(vec_gen)))
+    # [0, 1, 1]
+    for idx in gen_idx:
+        vec_gen[idx] += 1
 
-    return vec_refs, vec_gen
+    return vec_ref, vec_gen
